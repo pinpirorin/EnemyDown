@@ -12,13 +12,15 @@ import org.bukkit.event.Listener;
 public class EnemySpawnCommand extends  BaseCommand implements Listener {
 
   @Override
-  public boolean onExecutePlayerCommand(Player player) {
+  public boolean onExecutePlayerCommand(Player player, Command command, String label,
+      String[] args) {
     player.getWorld().spawnEntity(getEnemySpawnLocation(player), getEnemy());
     return true;
   }
 
   @Override
-  public boolean onExecuteNPCCommand(CommandSender sender) {
+  public boolean onExecuteNPCCommand(CommandSender sender, Command command, String label,
+      String[] args) {
     return false;
   }
 
