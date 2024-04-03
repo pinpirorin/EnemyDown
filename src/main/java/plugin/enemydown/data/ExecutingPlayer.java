@@ -10,13 +10,13 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-public class PlayerScore {
+public class ExecutingPlayer {
 
   private String playerName;
   private int score;
   private int gameTime;
 
-  public PlayerScore(String playerName){
+  public ExecutingPlayer(String playerName){
     this.playerName = playerName;
 
   }
