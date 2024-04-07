@@ -1,8 +1,8 @@
-package plugin.enemydown.mapper.data;
+package plugin.enemydown.mapper;
 
 import java.util.List;
 import org.apache.ibatis.annotations.Select;
-import plugin.enemydown.mapper.data.data.PlayerScore;
+import plugin.enemydown.mapper.data.PlayerScore;
 
 public interface PlayerScoreMapper {
 

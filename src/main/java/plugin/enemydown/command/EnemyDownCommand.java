@@ -1,9 +1,9 @@
 package plugin.enemydown.command;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
@@ -34,9 +34,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.potion.PotionEffect;
 import plugin.enemydown.Main;
 import plugin.enemydown.data.ExecutingPlayer;
-import  java.util.logging.Logger;
-import plugin.enemydown.mapper.data.PlayerScoreMapper;
-import plugin.enemydown.mapper.data.data.PlayerScore;
+import plugin.enemydown.mapper.PlayerScoreMapper;
+import plugin.enemydown.mapper.data.PlayerScore;
 
 /*
  * 制限時間内にランダムで出現する敵を倒して、スコアを獲得するゲームを起動するゲームです
@@ -56,40 +55,42 @@ public class EnemyDownCommand extends BaseCommand implements Listener {
   private List<Entity> spawnEntitylist = new ArrayList<>();
 
   private SqlSessionFactory sqlSessionFactory;
-  private static final Logger logger = Logger.getLogger(EnemyDownCommand.class.getName());
-  //...
 
   public EnemyDownCommand(Main main) {
     this.main = main;
   }
 
-  {
-    try {
-      InputStream inputStream = Resources.getResourceAsStream("mybatis-config.xml");
-      this.sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+  private SqlSessionFactory buildSqlSessionFactory(){
+
+    {
+      try {
+        InputStream inputStream = Resources.getResourceAsStream("mybatis-config.xml");
+        return new SqlSessionFactoryBuilder().build(inputStream);
+      } catch (Exception e) {
+        throw new RuntimeException("Failed to initialize SqlSessionFactory", e);
+      }
     }
   }
-
   @Override
   public boolean onExecutePlayerCommand(Player player, Command command, String label,
       String[] args) {
-    try {
-      if (args.length == 1 && LIST.equals(args[0])) {
+    if (args.length == 1 && LIST.equals(args[0])) {
         try (SqlSession session = sqlSessionFactory.openSession()) {
           PlayerScoreMapper mapper = session.getMapper(PlayerScoreMapper.class);
           List<PlayerScore> playerScoreList = mapper.selectList();
 
           DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
           for (PlayerScore playerScore : playerScoreList) {
-            LocalDateTime date = LocalDateTime.parse(playerScore.getRegisteredDt(), formatter);
+            if (playerScore.getRegisteredDt()!=null) {
+              LocalDateTime date = LocalDateTime.parse(playerScore.getRegisteredDt(), formatter);
+              player.sendMessage(playerScore.getId() + " | "
+                  + playerScore.getPlayerName() + " | "
+                  + playerScore.getScore() + " | "
+                  + playerScore.getDifficulty() + " | "
+                  + date.format(formatter));
+            }else {
 
-            player.sendMessage(playerScore.getId() + " | "
-                + playerScore.getPlayerName() + " | "
-                + playerScore.getScore() + " | "
-                + playerScore.getDifficulty() + " | "
-                + date.format(formatter));
+            }
           }
         }
         return false;
@@ -104,12 +105,7 @@ public class EnemyDownCommand extends BaseCommand implements Listener {
       initPlayerStatus(player);
       gamePlay(player, nowExecutingPlayer, difficulty);
       return true;
-    } catch (Exception e) {
-      e.printStackTrace();
-      return false;
     }
-  }
-
 
   /**
    * 難易度をコマンド引数から取得します
@@ -118,19 +114,17 @@ public class EnemyDownCommand extends BaseCommand implements Listener {
    * @param args   　コマンド引数
    * @return　難易度
    */
-  private static String getDifficulty(Player player, String[] args) {
-    if (args.length == 1 &&
-        (EASY.equals(args[0]) || NORMAL.equals(args[0]) || HARD.equals(args[0]))) {
+  private String getDifficulty(Player player, String[] args) {
+    if (args.length == 1 && (EASY.equals(args[0]) || NORMAL.equals(args[0]) || HARD.equals(
+        args[0]))) {
       return args[0];
     }
-    player.sendMessage(ChatColor.RED
-        + "実行できませんコマンド引数一つ目に難易度設定が必要です。［easy,normal,hard］");
+    player.sendMessage(ChatColor.RED + "実行できませんコマンド引数一つ目に難易度設定が必要です。［easy,normal,hard］");
     return NONE;
-}
+  }
 
   @Override
-  public boolean onExecuteNPCCommand(CommandSender sender, Command command, String label,
-      String[] args) {
+  public boolean onExecuteNPCCommand(CommandSender sender, Command command, String label, String[] args) {
   return false;
   }
 
@@ -212,7 +206,7 @@ public class EnemyDownCommand extends BaseCommand implements Listener {
    *
    * @param player　コマンドを実行したプレイヤー
    */
-  private static void initPlayerStatus(Player player) {
+  private void initPlayerStatus(Player player) {
     player.setHealth(20);
     player.setFoodLevel(20);
 
@@ -237,23 +231,23 @@ private void gamePlay(Player player, ExecutingPlayer nowExecutingPlayer, String 
       Runnable.cancel();
 
       player.sendTitle("ゲームを終了しました",
-          nowExecutingPlayer.getPlayerName() + " 合計 " + nowExecutingPlayer.getScore()+"点!",
-          0,60,0);
+          nowExecutingPlayer.getPlayerName() + " 合計 " + nowExecutingPlayer.getScore() + "点!",
+          0, 60, 0);
 
       try (Connection con = DriverManager.getConnection(
-          "jdbc:mysql://localhost:3306/spigot_server",
+          "jdbc:mysql://localhost:3306/spigot_server?serverTimezone=UTC",
           "root",
           "yasuzaki77**");
           Statement statement = con.createStatement()){
 
         statement.executeUpdate(
-            "insert player_score(player_name,score,difficulty,registered_at)"
-            +"values('" + nowExecutingPlayer.getPlayerName() + "'," + nowExecutingPlayer.getScore() + ",'"
-            +difficulty + "',now());");
-      }catch (SQLException e) {
+            "insert player_score(player_name,score,difficulty,registeredDt)"
+            +"values('"+nowExecutingPlayer.getPlayerName()+"',"+nowExecutingPlayer.getScore()
+            +difficulty+"',now());");
+
+      } catch (SQLException e) {
         e.printStackTrace();
       }
-
       spawnEntitylist.forEach(Entity::remove);
       spawnEntitylist.clear();
 

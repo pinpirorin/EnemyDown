@@ -1,4 +1,4 @@
-package plugin.enemydown.mapper.data.data;
+package plugin.enemydown.mapper.data;
 
 import lombok.Getter;
 import lombok.Setter;
